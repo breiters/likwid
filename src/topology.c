@@ -1076,8 +1076,16 @@ topology_setName(void)
                     break;
                 case ZEN2_RYZEN:
                 case ZEN2_RYZEN2:
+                case ZEN2_RYZEN_7:
                     cpuid_info.name = amd_zen2_str;
                     cpuid_info.short_name = short_zen2;
+                    break;
+
+                default /*?*/:
+                    // printf("cpuid_info.model = %u\n", cpuid_info.model);
+                    // cpuid_info.name = amd_zen2_str;
+                    // cpuid_info.short_name = short_zen2;
+                    /* should set something like: "unknown zen/zen2 model line " __LINE__ " file " __FILE__" instead of "nil" */
                     break;
             }
             break;

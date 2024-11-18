@@ -865,6 +865,33 @@ perfmon_init_maps(void)
     uint32_t eax, ebx, ecx, edx;
     if (eventHash != NULL && counter_map != NULL && box_map != NULL && perfmon_numCounters > 0 && perfmon_numArchEvents > 0)
         return;
+
+#if 0
+    cpuid_info.model = ZEN_FAMILY;
+    typedef struct {
+    uint32_t    family; /*!< \brief CPU family ID*/
+    uint32_t    model; /*!< \brief CPU model ID */
+    uint32_t    stepping; /*!< \brief Stepping (version) of the CPU */
+    uint32_t    vendor; /*!< \brief Vendor of the CPU */
+    uint32_t    part; /*!< \brief Part number of the CPU */
+    uint64_t    clock; /*!< \brief Current clock frequency of the executing CPU*/
+    int         turbo; /*!< \brief Flag if CPU has a turbo mode */
+    char*       osname; /*!< \brief Name of the CPU reported by OS */
+    char*       name; /*!< \brief Name of the CPU as identified by LIKWID */
+    char*       short_name; /*!< \brief Short name of the CPU*/
+    char*       features; /*!< \brief String with all features supported by the CPU*/
+    int         isIntel; /*!< \brief Flag if it is an Intel CPU*/
+    char        architecture[20]; /*!< \brief name of the architecture like x86_64 or ppc64 (comparable with uname -m)*/
+    int         supportUncore; /*!< \brief Flag if system has Uncore performance monitors */
+    int         supportClientmem; /*!< \brief Flag if system has mappable memory controllers */
+    uint64_t    featureFlags; /*!< \brief Mask of all features supported by the CPU*/
+    uint32_t    perf_version; /*!< \brief Version of Intel's performance monitoring facility */
+    uint32_t    perf_num_ctr; /*!< \brief Number of general purpose HWthread-local performance monitoring counters */
+    uint32_t    perf_width_ctr; /*!< \brief Bit width of fixed and general purpose counters */
+    uint32_t    perf_num_fixed_ctr; /*!< \brief Number of fixed purpose HWthread-local performance monitoring counters */
+} CpuInfo;
+#endif
+    
     switch ( cpuid_info.family )
     {
         case P6_FAMILY:
@@ -1230,6 +1257,7 @@ perfmon_init_maps(void)
                     break;
                 case ZEN2_RYZEN:
                 case ZEN2_RYZEN2:
+                default:
                     eventHash = zen2_arch_events;
                     perfmon_numArchEvents = perfmon_numArchEventsZen2;
                     counter_map = zen2_counter_map;
@@ -1237,8 +1265,7 @@ perfmon_init_maps(void)
                     perfmon_numCounters = perfmon_numCountersZen2;
                     translate_types = zen2_translate_types;
                     break;
-                default:
-                    ERROR_PLAIN_PRINT(Unsupported AMD Zen Processor);
+                    // ERROR_PLAIN_PRINT(Unsupported AMD Zen Processor);
             }
             break;
         case ZEN3_FAMILY:
@@ -1765,6 +1792,7 @@ perfmon_init_funcs(int* init_power, int* init_temp)
                     break;
                 case ZEN2_RYZEN:
                 case ZEN2_RYZEN2:
+                default:
                     initThreadArch = perfmon_init_zen2;
                     initialize_power = TRUE;
                     perfmon_startCountersThread = perfmon_startCountersThread_zen2;
@@ -1773,7 +1801,6 @@ perfmon_init_funcs(int* init_power, int* init_temp)
                     perfmon_setupCountersThread = perfmon_setupCounterThread_zen2;
                     perfmon_finalizeCountersThread = perfmon_finalizeCountersThread_zen2;
                     break;
-                default:
                     ERROR_PLAIN_PRINT(Unsupported AMD Zen2 Processor);
                     break;
             }
@@ -2902,7 +2929,14 @@ perfmon_getMetric(int groupId, int metricId, int threadId)
             }
         }
     }
+    double result2;
     e = calc_metric(groupSet->groups[groupId].group.metricformulas[metricId], &clist, &result);
+    e = calc_metric_new(groupSet->groups[groupId].group.metrictrees[metricId], &clist, &result2);
+    if(fabs(result - result2) > 1.0E-6) {
+        fprintf(stderr "Error: results don't match");
+        exit(EXIT_FAILURE);
+    }
+
     if (e < 0)
     {
         result = 0.0;
@@ -2989,7 +3023,15 @@ perfmon_getLastMetric(int groupId, int metricId, int threadId)
             }
         }
     }
+
+    double result2;
     e = calc_metric(groupSet->groups[groupId].group.metricformulas[metricId], &clist, &result);
+    e = calc_metric_new(groupSet->groups[groupId].group.metrictrees[metricId], &clist, &result2);
+    if(fabs(result - result2) > 1.0E-6) {
+        fprintf(stderr "Error: results don't match");
+        exit(EXIT_FAILURE);
+    }
+
     if (e < 0)
     {
         result = 0.0;
@@ -3659,7 +3701,15 @@ perfmon_getMetricOfRegionThread(int region, int metricId, int threadId)
             }
         }
     }
+
+    double result2;
     err = calc_metric(groupSet->groups[markerResults[region].groupID].group.metricformulas[metricId], &clist, &result);
+    err = calc_metric_new(groupSet->groups[markerResults[region].groupID].group.metrictrees[metricId], &clist, &result2);
+    if(fabs(result - result2) > 1.0E-6) {
+        fprintf(stderr "Error: results don't match");
+        exit(EXIT_FAILURE);
+    }
+
     if (err < 0)
     {
         ERROR_PRINT(Cannot calculate formula %s, groupSet->groups[markerResults[region].groupID].group.metricformulas[metricId]);

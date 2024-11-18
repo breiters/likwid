@@ -51,7 +51,7 @@
 #include <bstrlib.h>
 #include <bstrlib_helper.h>
 
-
+#include "calculator_exptree.h"
 
 static int totalgroups = 0;
 
@@ -877,6 +877,7 @@ perfgroup_readGroup(
     ginfo->nmetrics = 0;
     ginfo->metricformulas = NULL;
     ginfo->metricnames = NULL;
+    ginfo->metrictrees = NULL;
     ginfo->longinfo = NULL;
     ginfo->groupname = (char*)malloc((strlen(groupname)+10)*sizeof(char));
     if (ginfo->groupname == NULL)
@@ -1159,6 +1160,23 @@ perfgroup_readGroup(
     bdestroy(REQUIRE);
     bdestroy(homepath);
     bdestroy(fullpath);
+
+    // build expression trees from formulas:
+    if(ginfo->nmetrics > 0) {
+        ginfo->metrictrees = calloc(ginfo->nmetrics, sizeof(struct exptree_node *));
+        if(!ginfo->metrictrees) {
+            err = -ENOMEM;
+            goto cleanup;
+        }
+        for(int i = 0; i < ginfo->nmetrics; ++i) {
+            ginfo->metrictrees[i] = make_expression_tree(ginfo->metricformulas[i]);
+            if(!ginfo->metrictrees[i]) {
+                err = -ENOMEM; /* err = ? TODO: proper error handling */
+                goto cleanup;
+            }
+        }
+    }
+
     return 0;
 cleanup:
     bdestroy(REQUIRE);
@@ -1184,11 +1202,16 @@ cleanup:
     {
         for(i=0;i<ginfo->nmetrics; i++)
         {
-            if (ginfo->metricformulas[i])
+            if (ginfo->metricformulas[i]) /* ? do you mean ginfo->metricformulas ? */
                 free(ginfo->metricformulas[i]);
-            if (ginfo->metricnames[i])
+            if (ginfo->metricnames[i]) /* ? do you mean ginfo->metricnames ? */
                 free(ginfo->metricnames[i]);
+
+            if(ginfo->metrictrees) {
+                free_expression_tree(ginfo->metrictrees[i]);
+            }
         }
+        free(ginfo->metrictrees);
     }
     /*ginfo->shortinfo = NULL;
     ginfo->nevents = 0;
@@ -1215,6 +1238,7 @@ perfgroup_new(GroupInfo* ginfo)
     ginfo->nmetrics = 0;
     ginfo->metricformulas = NULL;
     ginfo->metricnames = NULL;
+    ginfo->metrictrees = NULL;
     ginfo->longinfo = NULL;
     return 0;
 }
@@ -1303,6 +1327,13 @@ perfgroup_addMetric(GroupInfo* ginfo, char* mname, char* mcalc)
         ERROR_PRINT(Cannot increase space for metricformulas to %d bytes, (ginfo->nmetrics + 1) * sizeof(char*));
         return -ENOMEM;
     }
+    ginfo->metrictrees = realloc(ginfo->metrictrees, (ginfo->nmetrics + 1) * sizeof(struct exptree_node*));
+    if (!ginfo->metrictrees)
+    {
+        ERROR_PRINT(Cannot increase space for metrictrees to %d bytes, (ginfo->nmetrics + 1) * sizeof(char*));
+        return -ENOMEM;
+    }
+    
     ginfo->metricnames[ginfo->nmetrics] = malloc((strlen(mname) + 1) * sizeof(char));
     if (!ginfo->metricnames[ginfo->nmetrics])
     {
@@ -1326,6 +1357,14 @@ perfgroup_addMetric(GroupInfo* ginfo, char* mname, char* mcalc)
     {
         ginfo->metricformulas[ginfo->nmetrics][ret] = '\0';
     }
+    ginfo->metrictrees[ginfo->nmetrics] = make_expression_tree(mcalc);
+    if (!ginfo->metrictrees[ginfo->nmetrics])
+    {
+        /* TODO: proper error handling */
+        // ERROR_PRINT(?);
+        return -ENOMEM;
+    }
+
     ginfo->nmetrics++;
     return 0;
 }
@@ -1478,13 +1517,17 @@ perfgroup_returnGroup(GroupInfo* ginfo)
     {
         for(i=0;i<ginfo->nmetrics; i++)
         {
-            if (ginfo->metricformulas[i])
+            if (ginfo->metricformulas[i]) /* ? */
                 free(ginfo->metricformulas[i]);
-            if (ginfo->metricnames[i])
+            if (ginfo->metricnames[i]) /* ? */
                 free(ginfo->metricnames[i]);
+            if (ginfo->metrictrees) {
+                free_expression_tree(ginfo->metrictrees[i]);
+            }
         }
         free(ginfo->metricformulas);
         free(ginfo->metricnames);
+        free(ginfo->metrictrees);
     }
     ginfo->groupname = NULL;
     ginfo->shortinfo = NULL;
@@ -1493,6 +1536,7 @@ perfgroup_returnGroup(GroupInfo* ginfo)
     ginfo->events = NULL;
     ginfo->metricformulas = NULL;
     ginfo->metricnames = NULL;
+    ginfo->metrictrees = NULL;
     ginfo->nevents = 0;
     ginfo->nmetrics = 0;
 }
@@ -1567,9 +1611,45 @@ destroy_clist(CounterList* clist)
     }
 }
 
+#if 1
+void print_counter_list(const CounterList* clist)
+{
+    printf("counters: %d\n", clist->counters);
+    printf("cnames:\n");
+    bstrListPrint(clist->cnames);
+    printf("cvalues:\n");
+    bstrListPrint(clist->cvalues);
+}
+#endif
+
+int
+calc_metric_new(const struct exptree_node *root, const CounterList* clist, double *result)
+{
+    // printf("Clist: ");
+    // print_counter_list(clist);
+    // printf("Evaluating: ");
+    // print_expression_tree(root);
+    double val = evaluate_expression_tree(root, clist);
+    // printf("Value: %g\n", val);
+    *result = val;
+    return 0;
+    /* TODO: error handling */
+    // return -EINVAL; /* negative result means error ? */
+}
+
 int
 calc_metric(char* formula, CounterList* clist, double *result)
 {
+    /* TEST CODE */
+    // printf("Formula: %s\n", formula);
+    // print_counter_list(clist);
+    // struct exptree_node * root = make_expression_tree(formula);
+    // printf("Formula: %s\n", formula);
+    // print_expression_tree(root);
+    // double val = evaluate_expression_tree(root, clist);
+    // printf("value: %f\n", val);
+    /* END */
+
     int i=0;
     *result = 0.0;
     int maxstrlen = 0, minstrlen = 10000;

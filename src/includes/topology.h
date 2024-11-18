@@ -136,13 +136,14 @@ struct topology_functions {
 #define ATHLON64_X2_G   0x6BU
 #define ATHLON64_G1     0x6FU
 #define ATHLON64_G2     0x7FU
-#define ZEN_RYZEN       0x01
-#define ZENPLUS_RYZEN   0x08
-#define ZENPLUS_RYZEN2  0x18
-#define ZEN2_RYZEN      0x31
-#define ZEN2_RYZEN2     0x71
-#define ZEN3_RYZEN      0x01
-#define ZEN3_RYZEN2     0x21
+#define ZEN_RYZEN       0x01U
+#define ZENPLUS_RYZEN   0x08U
+#define ZENPLUS_RYZEN2  0x18U
+#define ZEN2_RYZEN      0x31U
+#define ZEN2_RYZEN2     0x71U
+#define ZEN2_RYZEN_7    0x60U
+#define ZEN3_RYZEN      0x01U
+#define ZEN3_RYZEN2     0x21U
 
 /* ARM */
 #define  ARM7L          0x3U

@@ -599,7 +599,7 @@ if print_groups == true then
             print_stdout(string.format(s, g["Name"], g["Info"]))
         end
     else
-        print_stdout(string.format("No groups defined for %s",cpuinfo["name"]))
+        print_stdout(string.format("No groups defined2 for %s",cpuinfo["name"]))
     end
     if gpusSupported and gputopo then
         avail_groups = likwid.getGpuGroups(0)
@@ -615,7 +615,7 @@ if print_groups == true then
                 print_stdout(string.format(s, g["Name"], g["Info"]))
             end
         else
-            print_stdout(string.format("No groups defined for %s",gputopo["devices"][1]["name"]))
+            print_stdout(string.format("No groups defined3 for %s",gputopo["devices"][1]["name"]))
         end
     end
     perfctr_exit(0)
